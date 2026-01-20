@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ruleta de seqüències (I5) · Robots compactes</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; background:#0b1220; color:#e8eefc; }
+    .card { width:min(920px, 96vw); background:#111a2e; border:1px solid #223055; border-radius:18px; padding:20px; box-shadow:0 12px 40px rgba(0,0,0,.35); }
+    h1 { margin:0 0 6px; font-size:22px; }
+    p  { margin:0 0 14px; opacity:.85; line-height:1.35; }
+
+    .topbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin: 10px 0 16px; }
+    .pill { font-size:12px; opacity:.9; padding:8px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); }
+
+    .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin: 12px 0 16px; }
+    button {
+      cursor:pointer; border:0; border-radius:14px; padding:12px 14px;
+      background:#2a4cff; color:white; font-weight:900;
+      box-shadow:0 10px 24px rgba(42,76,255,.25);
+    }
+    button.secondary { background:#223055; box-shadow:none; font-weight:800; }
+    button.good { background:#16a34a; box-shadow:0 10px 24px rgba(22,163,74,.18); }
+    button.warn { background:#f59e0b; color:#0b1220; box-shadow:0 10px 24px rgba(245,158,11,.16); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+
+    .grid { display:grid; grid-template-columns: 1fr; gap:14px; }
+
+    /* “Ruleta” visual: una targeta gran que mostra l'ordre que ha sortit */
+    .wheel {
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background: radial-gradient(1200px 500px at 50% -20%, rgba(42,76,255,.28), rgba(255,255,255,.02));
+      padding: 18px;
+      display:grid;
+      gap: 10px;
+      align-items:center;
+    }
+    .wheelTitle { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+    .wheelTitle b { font-size:16px; }
+    .wheelTitle span { font-size:12px; opacity:.8; }
+
+    .bigAction {
+      min-height: 120px;
+      display:grid;
+      place-items:center;
+      border-radius:16px;
+      background: rgba(0,0,0,.18);
+      border: 1px solid rgba(255,255,255,.10);
+    }
+    .emoji {
+      font-size: 84px; line-height: 1;
+      filter: drop-shadow(0 10px 16px rgba(0,0,0,.35));
+      transform-origin: 50% 50%;
+    }
+    .label {
+      font-size: 18px; font-weight: 900;
+      letter-spacing: .3px;
+      margin-top: 6px;
+    }
+
+    /* animació quan surt una ordre */
+    .pop { animation: pop 520ms ease-out; }
+    @keyframes pop {
+      0% { transform: scale(.25) rotate(-8deg); opacity: .2; }
+      60% { transform: scale(1.12) rotate(4deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0); opacity: 1; }
+    }
+
+    /* Seqüència final (icones grans per I5) */
+    .sequence {
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.03);
+      padding: 16px;
+    }
+    .seqHeader { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .seqHeader b { font-size:16px; }
+    .seqHeader .mini { font-size:12px; opacity:.8; }
+
+    .steps {
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      align-items:center;
+      min-height: 64px;
+    }
+    .chip {
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding: 10px 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.12);
+      font-weight: 900;
+      font-size: 18px;
+    }
+    .chip .i { font-size: 34px; line-height: 1; }
+    .empty {
+      opacity:.7;
+      font-size: 14px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px dashed rgba(255,255,255,.18);
+      background: rgba(255,255,255,.02);
+    }
+
+    label { font-size: 12px; opacity:.9; font-weight: 800; }
+    select {
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06);
+      color: #e8eefc;
+      padding: 10px 10px;
+      font-weight: 900;
+      outline: none;
+    }
+    option { color: #0b1220; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Ruleta de seqüències (I5) · Robots compactes</h1>
+    <p>
+      Generem una seqüència pas a pas amb la “ruleta”. L’alumnat ha de prémer els <b>pulsadors</b> del robot
+      en el mateix ordre i, al final, prémer <b>GO</b>.
+    </p>
+
+    <div class="topbar">
+      <span class="pill"><b>Botons</b>: ENDAVANT · ENRERE · ESQUERRA · DRETA · GO</span>
+      <span class="pill">Consell I5: 3–5 passos (sense comptar GO)</span>
+    </div>
+
+    <div class="controls">
+      <div>
+        <label for="len">Passos (sense GO)</label><br />
+        <select id="len">
+          <option value="3">3 passos</option>
+          <option value="4" selected>4 passos</option>
+          <option value="5">5 passos</option>
+<option value="6">6 passos</option>
+<option value="7">7 passos</option>
+<option value="8">7 passos</option>
+<option value="8">8 passos</option>
+
+
+
+
+        </select>
+      </div>
+
+      <button id="spinBtn">🎯 Gira (afegeix 1 pas)</button>
+      <button id="undoBtn" class="secondary">↩︎ Esborra últim</button>
+      <button id="goBtn" class="good">✅ Afegir GO (final)</button>
+      <button id="newBtn" class="warn">🎲 Nova seqüència</button>
+      <span id="status" class="pill">Preparat</span>
+    </div>
+
+    <div class="grid">
+      <div class="wheel">
+        <div class="wheelTitle">
+          <b>Última ordre sortida</b>
+          <span>(cada “Gira” afegeix un pas a la seqüència)</span>
+        </div>
+        <div class="bigAction" aria-live="polite">
+          <div style="text-align:center">
+            <div id="lastEmoji" class="emoji">🎲</div>
+            <div id="lastLabel" class="label">Gira per començar</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sequence">
+        <div class="seqHeader">
+          <b>Seqüència a fer al robot</b>
+          <span class="mini">L’alumnat entra els passos… i al final GO</span>
+        </div>
+        <div id="steps" class="steps"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ====== ACCIONS (configuració 2) ======
+  // GO el reservem per al final. La ruleta genera MOVIMENTS.
+  const ACTIONS = [
+    { key: "F", label: "ENDAVANT", emoji: "⬆️" },
+    { key: "B", label: "ENRERE",   emoji: "⬇️" },
+    { key: "L", label: "ESQUERRA", emoji: "⬅️" },
+    { key: "R", label: "DRETA",    emoji: "➡️" }
+  ];
+  const GO = { key: "GO", label: "GO", emoji: "🟢" };
+
+  // ====== UI ======
+  const lenSel = document.getElementById("len");
+  const spinBtn = document.getElementById("spinBtn");
+  const undoBtn = document.getElementById("undoBtn");
+  const goBtn   = document.getElementById("goBtn");
+  const newBtn  = document.getElementById("newBtn");
+  const status  = document.getElementById("status");
+
+  const lastEmoji = document.getElementById("lastEmoji");
+  const lastLabel = document.getElementById("lastLabel");
+  const stepsEl   = document.getElementById("steps");
+
+  let steps = [];      // passos de moviment (sense GO)
+  let hasGO = false;   // GO afegit?
+
+  function targetLen() { return Number(lenSel.value); }
+
+  function setStatus(msg) { status.textContent = msg; }
+
+  function animatePop(el) {
+    el.classList.remove("pop");
+    void el.offsetWidth;
+    el.classList.add("pop");
+  }
+
+  function renderSteps() {
+    stepsEl.innerHTML = "";
+    const total = targetLen();
+
+    if (steps.length === 0 && !hasGO) {
+      const d = document.createElement("div");
+      d.className = "empty";
+      d.textContent = "Encara no hi ha passos. Prem “Gira”.";
+      stepsEl.appendChild(d);
+      return;
+    }
+
+    // Mostrem passos existents
+    steps.forEach((a, i) => {
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      chip.innerHTML = `<span class="i">${a.emoji}</span> <span>${i+1}. ${a.label}</span>`;
+      stepsEl.appendChild(chip);
+    });
+
+    // “Huecos” fins arribar al total (visual I5)
+    for (let i = steps.length; i < total; i++) {
+      const d = document.createElement("div");
+      d.className = "empty";
+      d.textContent = `${i+1}. (pendent)`;
+      stepsEl.appendChild(d);
+    }
+
+    // GO al final si està posat
+    if (hasGO) {
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      chip.innerHTML = `<span class="i">${GO.emoji}</span> <span>FINAL · ${GO.label}</span>`;
+      stepsEl.appendChild(chip);
+    }
+  }
+
+  function canSpin() {
+    return steps.length < targetLen() && !hasGO;
+  }
+
+  function updateButtons() {
+    spinBtn.disabled = !canSpin();
+    undoBtn.disabled = (steps.length === 0 && !hasGO);
+    goBtn.disabled = (hasGO || steps.length === 0 || steps.length < targetLen());
+  }
+
+  function pickRandomAction() {
+    return ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+  }
+
+  function spinOneStep() {
+    if (!canSpin()) return;
+
+    const a = pickRandomAction();
+    steps.push(a);
+
+    lastEmoji.textContent = a.emoji;
+    lastLabel.textContent = a.label;
+    animatePop(lastEmoji);
+
+    const remain = targetLen() - steps.length;
+    setStatus(remain > 0 ? `Falten ${remain} pas(sos)` : `Ja tens ${targetLen()} passos. Afegeix GO!`);
+
+    renderSteps();
+    updateButtons();
+  }
+
+  function undo() {
+    if (hasGO) {
+      hasGO = false;
+      lastEmoji.textContent = "↩️";
+      lastLabel.textContent = "S'ha tret GO";
+      animatePop(lastEmoji);
+    } else if (steps.length > 0) {
+      const removed = steps.pop();
+      lastEmoji.textContent = "🗑️";
+      lastLabel.textContent = `Tret: ${removed.label}`;
+      animatePop(lastEmoji);
+    }
+
+    const remain = targetLen() - steps.length;
+    if (steps.length === 0) setStatus("Preparat");
+    else setStatus(remain > 0 ? `Falten ${remain} pas(sos)` : `Ja tens ${targetLen()} passos. Afegeix GO!`);
+
+    renderSteps();
+    updateButtons();
+  }
+
+  function addGO() {
+    // Per I5: GO sempre al final i només quan ja hi ha tots els passos
+    if (steps.length < targetLen() || hasGO) return;
+
+    hasGO = true;
+    lastEmoji.textContent = GO.emoji;
+    lastLabel.textContent = "GO (final)";
+    animatePop(lastEmoji);
+
+    setStatus("Seqüència llesta! Entra-la al robot i prem GO.");
+    renderSteps();
+    updateButtons();
+  }
+
+  function newSequence() {
+    steps = [];
+    hasGO = false;
+    lastEmoji.textContent = "🎲";
+    lastLabel.textContent = "Gira per començar";
+    setStatus("Preparat");
+    renderSteps();
+    updateButtons();
+  }
+
+  // ====== Esdeveniments ======
+  spinBtn.addEventListener("click", spinOneStep);
+  undoBtn.addEventListener("click", undo);
+  goBtn.addEventListener("click", addGO);
+  newBtn.addEventListener("click", newSequence);
+  lenSel.addEventListener("change", () => {
+    // Si baixes la longitud i sobren passos, els retallem
+    const t = targetLen();
+    if (steps.length > t) steps = steps.slice(0, t);
+    if (steps.length < t) hasGO = false; // si canvia la mida, GO deixa de ser vàlid
+    const remain = t - steps.length;
+    if (steps.length === 0) setStatus("Preparat");
+    else setStatus(remain > 0 ? `Falten ${remain} pas(sos)` : `Ja tens ${t} passos. Afegeix GO!`);
+    renderSteps();
+    updateButtons();
+  });
+
+  // Teclat: espai/enter = gira, r = nova seq, backspace = esborra, g = GO
+  window.addEventListener("keydown", (e) => {
+    if (e.repeat) return;
+    if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); spinOneStep(); }
+    if (e.key.toLowerCase() === "r") newSequence();
+    if (e.key === "Backspace") { e.preventDefault(); undo(); }
+    if (e.key.toLowerCase() === "g") addGO();
+  });
+
+  // Inicial
+  renderSteps();
+  updateButtons();
+</script>
+</body>
+</html>

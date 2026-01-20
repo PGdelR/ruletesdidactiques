@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ruleta didàctica</title>
+
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #0b1220;
+      color: #e8eefc;
+    }
+
+    .card {
+      width: min(820px, 94vw);
+      background: #111a2e;
+      border: 1px solid #223055;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    }
+
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    p  { margin: 0 0 18px; opacity: .85; }
+
+    .wheel-wrap {
+      position: relative;
+      display: grid;
+      place-items: center;
+      margin-bottom: 14px;
+    }
+
+    /* 🔻 PUNTER TOCANT LA RUETA */
+    .pointer {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-top: 28px solid #ffd166;
+      z-index: 5;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,.4));
+    }
+
+    canvas {
+      width: min(440px, 92vw);
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      background: #0e1730;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    button {
+      cursor: pointer;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      background: #2a4cff;
+      color: white;
+      font-weight: 800;
+      box-shadow: 0 10px 24px rgba(42,76,255,.25);
+    }
+
+    button.secondary {
+      background: #223055;
+      box-shadow: none;
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .result {
+      display: grid;
+      grid-template-columns: 64px 1fr;
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid #223055;
+      background: rgba(255,255,255,.03);
+    }
+
+    .resultIconWrap {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .resultIconWrap img {
+      width: 44px;
+      height: 44px;
+    }
+
+    .big  { font-size: 18px; font-weight: 900; }
+    .mini { font-size: 13px; opacity: .8; }
+
+    /* animació resultat */
+    .pop img { animation: pop 650ms ease-out; }
+    @keyframes pop {
+      0%   { transform: scale(.2) rotate(-10deg); opacity: .2; }
+      55%  { transform: scale(1.12) rotate(6deg); }
+      100% { transform: scale(1) rotate(0); opacity: 1; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h1>Ruleta de propostes didàctiques</h1>
+    <p>Gira la ruleta per decidir quin tipus d’activitat de programació treballar.</p>
+
+    <div class="wheel-wrap">
+      <div class="pointer"></div>
+      <canvas id="wheel" width="600" height="600"></canvas>
+    </div>
+
+    <div class="controls">
+      <button id="spinBtn">🎯 Gira</button>
+      <button id="resetBtn" class="secondary">↩︎ Reiniciar</button>
+    </div>
+
+    <div class="result" aria-live="polite">
+      <div class="resultIconWrap" id="iconWrap">
+        <img id="resultIcon" alt="">
+      </div>
+      <div>
+        <div class="mini">Resultat</div>
+        <div class="big" id="resultText">—</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ========= SVG INLINE ========= */
+const svg = {
+  desendollat: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+      <g stroke="black" stroke-width="4" fill="none" stroke-linecap="round">
+        <path d="M22 8v18M32 8v18"/>
+        <path d="M16 26h22v12a11 11 0 0 1-22 0z" fill="black"/>
+        <path d="M10 10l44 44"/>
+      </g>
+    </svg>
+  `,
+  robot: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+      <rect x="14" y="18" width="36" height="28" rx="8" fill="black"/>
+      <circle cx="25" cy="32" r="4" fill="white"/>
+      <circle cx="39" cy="32" r="4" fill="white"/>
+      <rect x="22" y="46" width="20" height="10" rx="4" fill="black"/>
+    </svg>
+  `,
+  sensors: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="7" fill="black"/>
+      <path d="M32 6v10M32 48v10M6 32h10M48 32h10"
+            stroke="black" stroke-width="4"/>
+    </svg>
+  `
+};
+
+function svgImg(code){
+  const img = new Image();
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(code);
+  return img;
+}
+
+/* ========= OPCIONS ========= */
+const options = [
+  { label: "DESENDOLLAT",      icon: svgImg(svg.desendollat) },
+  { label: "ROBOTS COMPACTES", icon: svgImg(svg.robot) },
+  { label: "ROBOTS AMB SENOS", icon: svgImg(svg.sensors) }
+];
+
+/* ========= CANVAS ========= */
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+const spinBtn = document.getElementById("spinBtn");
+const resetBtn = document.getElementById("resetBtn");
+const resultText = document.getElementById("resultText");
+const resultIcon = document.getElementById("resultIcon");
+const iconWrap = document.getElementById("iconWrap");
+
+const cx = canvas.width / 2;
+const cy = canvas.height / 2;
+const radius = canvas.width * 0.46;
+
+let rotation = 0;
+let spinning = false;
+
+const colors = ["#2a4cff", "#1f9d8a", "#9b5de5"];
+
+/* ========= DIBUIX ========= */
+function drawWheel(angle) {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+
+  const slice = (Math.PI * 2) / options.length;
+
+  options.forEach((opt,i)=>{
+    const start = i * slice;
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.arc(0,0,radius,start,start+slice);
+    ctx.closePath();
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.fill();
+
+    ctx.save();
+    ctx.rotate(start + slice/2);
+
+    if(opt.icon.complete){
+      ctx.fillStyle="white";
+      ctx.beginPath();
+      ctx.roundRect(radius-150,-30,60,60,12);
+      ctx.fill();
+      ctx.drawImage(opt.icon,radius-144,-24,48,48);
+    }
+
+    ctx.rotate(Math.PI/2);
+    ctx.fillStyle="white";
+    ctx.font="900 18px system-ui";
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.fillText(opt.label,0,-radius+26);
+
+    ctx.restore();
+  });
+
+  ctx.restore();
+}
+
+/* ========= ANIMACIÓ ========= */
+function spin(){
+  if(spinning) return;
+  spinning=true;
+  spinBtn.disabled=true;
+  resultText.textContent="Girant…";
+  resultIcon.src="";
+
+  const start=performance.now();
+  const dur=2800;
+  const from=rotation;
+  const to=from + (4+Math.random()*4)*Math.PI*2;
+
+  function ease(t){return 1-Math.pow(1-t,3);}
+
+  function frame(now){
+    const t=Math.min(1,(now-start)/dur);
+    rotation=from+(to-from)*ease(t);
+    drawWheel(rotation);
+    if(t<1) requestAnimationFrame(frame);
+    else{
+      rotation%=Math.PI*2;
+      const idx=Math.floor(((-Math.PI/2-rotation+Math.PI*2)%(Math.PI*2))/(Math.PI*2/options.length));
+      const opt=options[idx];
+      resultText.textContent=opt.label;
+      resultIcon.src=opt.icon.src;
+      iconWrap.classList.remove("pop");
+      void iconWrap.offsetWidth;
+      iconWrap.classList.add("pop");
+      spinning=false;
+      spinBtn.disabled=false;
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function reset(){
+  rotation=0;
+  resultText.textContent="—";
+  resultIcon.src="";
+  drawWheel(rotation);
+}
+
+spinBtn.onclick=spin;
+resetBtn.onclick=reset;
+
+drawWheel(0);
+</script>
+</body>
+</html>
